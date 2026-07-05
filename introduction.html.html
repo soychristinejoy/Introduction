@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Video Interview Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Prevents scrolling */
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%);
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+        }
+
+        /* Top Bar Layout */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 8vh;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #FF1493;
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 2px 2px 0px #FFF;
+        }
+
+        /* Question Banner */
+        .question-card {
+            background: #FFE4B5;
+            padding: 15px;
+            border-radius: 16px;
+            border: 4px dashed #FF4500;
+            text-align: center;
+            height: 15vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .question-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #FF4500;
+        }
+
+        .question-text {
+            font-size: 2.8rem;
+            font-weight: bold;
+            color: #4B0082;
+            margin-top: 2px;
+        }
+
+        /* Center Main Frame */
+        .main-display {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            border-radius: 24px;
+            overflow: hidden;
+            border: 8px solid #32CD32;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        #recordingCanvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        #playbackVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* HTML-only Sentence Pattern Guide Box (Kept separated from Canvas Recording layer) */
+        .pattern-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 5%;
+            width: 90%;
+            background: rgba(255, 255, 255, 0.94);
+            border: 4px solid #1E90FF;
+            border-radius: 16px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .pattern-title {
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #1E90FF;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .pattern-text {
+            font-size: 2.4rem;
+            font-weight: bold;
+            color: #000000;
+        }
+
+        /* Bottom Controls Row */
+        .bottom-bar {
+            height: 12vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            gap: 8px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        button {
+            padding: 12px 40px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.2s ease;
+            box-shadow: 0 6px 0px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0px rgba(0,0,0,0.2);
+        }
+
+        #startBtn { background-color: #32CD32; color: white; }
+        #nextBtn { background-color: #1E90FF; color: white; }
+        #stopBtn { background-color: #FF4500; color: white; }
+        #redoBtn { background-color: #FFD700; color: #333; }
+        #saveBtn { background-color: #9370DB; color: white; }
+
+        .hidden { display: none !important; }
+
+        /* Footer Status Strip */
+        .status-banner {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2c3e50;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <div class="top-bar">
+        <h1>🎬 Continuous Video Interview</h1>
+    </div>
+    
+    <div class="question-card" id="qCard">
+        <div id="qNumber" class="question-number">Ready to Begin?</div>
+        <div id="qText" class="question-text">Press Start Below!</div>
+    </div>
+
+    <div class="main-display" id="videoContainer">
+        <video id="hiddenLiveVideo" autoplay playsinline muted class="hidden"></video>
+        
+        <canvas id="recordingCanvas"></canvas>
+        
+        <div id="patternBox" class="pattern-overlay hidden">
+            <div class="pattern-title">💡 Speaking Guide: Try using this pattern!</div>
+            <div id="patternText" class="pattern-text">My name is _______.</div>
+        </div>
+        
+        <video id="playbackVideo" class="hidden" controls></video>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="controls">
+            <button id="startBtn">🎬 Start Recording</button>
+            <button id="nextBtn" class="hidden">➡️ Next Question</button>
+            <button id="stopBtn" class="hidden">⏹️ Stop & Review</button>
+            <button id="redoBtn" class="hidden">🔄 Redo Whole Video</button>
+            <button id="saveBtn" class="hidden">💾 Save Full Video</button>
+        </div>
+        
+        <div class="status-banner" id="statusText">
+            Please allow camera and microphone access to see yourself!
+        </div>
+    </div>
+</div>
+
+<script>
+    const interviewData = [
+        { q: "What's your name?", p: "My name is _______." },
+        { q: "How old are you?", p: "I'm ____ years old." },
+        { q: "Where are you from?", p: "I'm from Taiwan." },
+        { q: "What county do you live in?", p: "I live in Nantou." },
+        { q: "What's your nationality?", p: "I'm Taiwanese." },
+        { q: "What's a nice place in your country?", p: "_______ is a nice place." },
+        { q: "What's your favorite food?", p: "My favorite food is _____." }
+    ];
+
+    let currentQuestionIndex = 0;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let localStream;
+    let recordedUrl = null;
+    let canvasInterval;
+    let isRecordingStarted = false;
+
+    const hiddenLiveVideo = document.getElementById('hiddenLiveVideo');
+    const recordingCanvas = document.getElementById('recordingCanvas');
+    const canvasContext = recordingCanvas.getContext('2d');
+    const playbackVideo = document.getElementById('playbackVideo');
+    const videoContainer = document.getElementById('videoContainer');
+    
+    const qNumber = document.getElementById('qNumber');
+    const qText = document.getElementById('qText');
+    const statusText = document.getElementById('statusText');
+    
+    const patternBox = document.getElementById('patternBox');
+    const patternText = document.getElementById('patternText');
+
+    // Buttons
+    const startBtn = document.getElementById('startBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const saveBtn = document.getElementById('saveBtn');
+
+    // Start Live Feed Setup
+    async function initCamera() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
+            hiddenLiveVideo.srcObject = localStream;
+            hiddenLiveVideo.play();
+            
+            recordingCanvas.width = 1280;
+            recordingCanvas.height = 720;
+            
+            startCanvasLoop();
+            
+            playbackVideo.classList.add('hidden');
+            recordingCanvas.classList.remove('hidden');
+            patternBox.classList.add('hidden');
+            videoContainer.style.borderColor = "#32CD32"; 
+            statusText.innerText = "Camera ready! Click 'Start Recording' to begin.";
+        } catch (err) {
+            console.error("Camera/Mic access error: ", err);
+            statusText.innerText = "❌ Error: Please grant camera and mic permissions to play.";
+        }
+    }
+
+    // Canvas drawing loop
+    function startCanvasLoop() {
+        clearInterval(canvasInterval);
+        canvasInterval = setInterval(() => {
+            // Draw live camera frame (Mirrored)
+            canvasContext.save();
+            canvasContext.translate(recordingCanvas.width, 0);
+            canvasContext.scale(-1, 1);
+            canvasContext.drawImage(hiddenLiveVideo, 0, 0, recordingCanvas.width, recordingCanvas.height);
+            canvasContext.restore();
+
+            // Bake text directly onto the video matrix (ONLY the question text)
+            if (isRecordingStarted && currentQuestionIndex < interviewData.length) {
+                const currentData = interviewData[currentQuestionIndex];
+
+                // Draw solid background rectangle banner for the question text
+                canvasContext.fillStyle = "rgba(255, 20, 147, 0.85)"; // High-contrast solid Deep Pink background
+                canvasContext.fillRect(40, 40, recordingCanvas.width - 80, 120);
+                canvasContext.lineWidth = 6;
+                canvasContext.strokeStyle = "#FFFFFF";
+                canvasContext.strokeRect(40, 40, recordingCanvas.width - 80, 120);
+
+                // Print Question text on video with a giant font size (52px)
+                canvasContext.fillStyle = "#FFFFFF";
+                canvasContext.font = "bold 52px 'Comic Sans MS', sans-serif";
+                canvasContext.textAlign = "center";
+                canvasContext.textBaseline = "middle";
+                canvasContext.fillText(currentData.q, recordingCanvas.width / 2, 100);
+            }
+        }, 1000 / 30); // 30fps Loop frame generation
+    }
+
+    // Refresh display properties
+    function displayNextQuestion() {
+        const currentData = interviewData[currentQuestionIndex];
+        qNumber.innerText = `Question ${currentQuestionIndex + 1} of ${interviewData.length}`;
+        qText.innerText = currentData.q;
+        
+        // Update the live HTML-only sentence pattern box on the browser page
+        patternBox.classList.remove('hidden');
+        patternText.innerText = currentData.p;
+    }
+
+    // Action: Start Canvas Recording
+    startBtn.addEventListener('click', () => {
+        recordedChunks = [];
+        currentQuestionIndex = 0;
+        isRecordingStarted = true;
+        
+        displayNextQuestion();
+        
+        // Capture stream from canvas layer
+        const canvasStream = recordingCanvas.captureStream(30); 
+        const audioTrack = localStream.getAudioTracks()[0];
+        canvasStream.addTrack(audioTrack);
+        
+        mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm;codecs=vp8,opus' });
+        
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            recordedUrl = URL.createObjectURL(blob);
+            
+            // Switch over to playback video player view
+            recordingCanvas.classList.add('hidden');
+            patternBox.classList.add('hidden'); // Hide the HTML pattern helper box
+            playbackVideo.classList.remove('hidden');
+            playbackVideo.src = recordedUrl;
+            videoContainer.style.borderColor = "#9370DB"; 
+            playbackVideo.play();
+
+            statusText.innerText = "👀 Watch your full interview recording below! The big question text is baked into the video file.";
+        };
+
+        mediaRecorder.start();
+
+        statusText.innerText = "🔴 Recording... Follow the text question on the screen and answer out loud!";
+        startBtn.classList.add('hidden');
+        nextBtn.classList.remove('hidden');
+    });
+
+    // Action: Next Question
+    nextBtn.addEventListener('click', () => {
+        if (currentQuestionIndex < interviewData.length - 1) {
+            currentQuestionIndex++;
+            displayNextQuestion();
+            
+            if (currentQuestionIndex === interviewData.length - 1) {
+                nextBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+            }
+        }
+    });
+
+    // Action: End recording run
+    stopBtn.addEventListener('click', () => {
+        isRecordingStarted = false;
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+
+        qNumber.innerText = "Interview Completed!";
+        qText.innerText = "Review Your Work ✨";
+
+        stopBtn.classList.add('hidden');
+        redoBtn.classList.remove('hidden');
+        saveBtn.classList.remove('hidden');
+    });
+
+    // Action: Reset view
+    redoBtn.addEventListener('click', async () => {
+        playbackVideo.pause();
+        playbackVideo.src = "";
+        if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+
+        await initCamera();
+
+        qNumber.innerText = "Ready to Try Again?";
+        qText.innerText = "Press Start Below!";
+
+        startBtn.classList.remove('hidden');
+        redoBtn.classList.add('hidden');
+        saveBtn.classList.add('hidden');
+    });
+
+    // Action: Save file
+    saveBtn.addEventListener('click', () => {
+        if (recordedUrl) {
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = recordedUrl;
+            a.download = 'student_interview_with_questions.webm';
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+            }, 100);
+
+            statusText.innerText = "💾 Saved successfully! Only the giant questions are baked into the file.";
+        }
+    });
+
+    window.addEventListener('load', initCamera);
+</script>
+
+</body>
+</html>
